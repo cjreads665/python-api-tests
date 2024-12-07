@@ -4,16 +4,45 @@ import uuid
 ENDPOINT = "https://todo.pixegami.io"
 
 
-def test_can_get_endpoint():
-    response = requests.get(ENDPOINT)
-    response.status_code == 200
-    pass
+# helper functions
+def create_task(payload):
+    # print(ENDPOINT+'/create-task')
+    response_create_task = requests.put(ENDPOINT+'/create-task', json=payload)
+    assert response_create_task.status_code == 200
+    return response_create_task
+
+def get_task(task_id):
+    response_get_task = requests.get(ENDPOINT+f"/get-task/{task_id}")
+    return response_get_task
+
 
 def update_task(payload):
     return requests.put(ENDPOINT+"/update-task",json=payload)
 
 def list_tasks(user_id):
     return requests.get(ENDPOINT+'/list-tasks/'+user_id)
+
+def delete_task(task_id):
+    return requests.delete(ENDPOINT+'/delete-task/'+task_id)
+
+
+def new_task_payload():
+    user_id = f"test_user_{uuid.uuid4().hex}"
+    content = f"test_user_{uuid.uuid4().hex}"
+    return {
+        "content": content,
+        "user_id": user_id,
+        "is_done": False,
+    }
+
+# ----------------tests start from here
+def test_can_get_endpoint():
+    response = requests.get(ENDPOINT)
+    response.status_code == 200
+    pass
+
+
+
 
 def test_can_create_task():
     payload = new_task_payload()
@@ -66,25 +95,25 @@ def test_can_list_tasks():
     assert list_task_response.status_code == 200
     assert len(list_task_response.json()["tasks"]) == 3
 
-# helper functions
-def create_task(payload):
-    # print(ENDPOINT+'/create-task')
-    response_create_task = requests.put(ENDPOINT+'/create-task', json=payload)
-    assert response_create_task.status_code == 200
-    return response_create_task
-
-def get_task(task_id):
-    response_get_task = requests.get(ENDPOINT+f"/get-task/{task_id}")
-    assert response_get_task.status_code == 200
-    return response_get_task
+def test_can_delete_task():
+    payload = new_task_payload()
+    ## create the task
+    create_task_response = create_task(payload)
+    create_task_id = create_task_response.json()["task"]["task_id"]
+    assert create_task_response.status_code == 200
 
 
+    ## verify if it is present in the system
+    get_task_response = get_task(create_task_id)
+    assert get_task_response.status_code == 200
+    assert get_task_response.json()["task_id"] == create_task_id
 
-def new_task_payload():
-    user_id = f"test_user_{uuid.uuid4().hex}"
-    content = f"test_user_{uuid.uuid4().hex}"
-    return {
-        "content": content,
-        "user_id": user_id,
-        "is_done": False,
-    }
+    ## delete the task
+    del_task_response = delete_task(create_task_id)
+    assert del_task_response.status_code == 200
+    assert del_task_response.json()["deleted_task_id"] == create_task_id
+
+    ## verify it is deleted from system
+    get_task_after_del = get_task(create_task_id)
+    print(get_task_after_del.json())
+    assert get_task_after_del.status_code == 404
